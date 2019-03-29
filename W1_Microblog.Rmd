@@ -1,0 +1,304 @@
+---
+title: "Ｗ1 microblog"
+author: "Jessica"
+date: "2019-03-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+  
+```{r}
+ggplot(data=group1) +
+    
+    # 先畫bar plot
+    geom_bar(aes(x=agegp,
+                 y=meanpage,
+                 fill=agegp),
+                 stat = "identity"
+             ) +
+    
+    # 再沿著Y，轉軸成圓餅圖
+    coord_polar("y", start=0)+theme(text = element_text(family = 'STKaiti'))
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(jiebaR)
+library(readxl)
+library(readr)
+library(stringr)
+library(tm)
+library(gridExtra)
+options(stringsAsFactors = F)
+```
+
+```{r}
+# https://data.gov.tw/dataset/6730
+pbpath="/Users/jl8394/Desktop/Jessica/Microblog/201901published_books.xlsx"
+pb <- read_excel(pbpath)
+View(pb)
+
+pb=data.frame(pb)
+pb=pb[,-12]
+pb=pb[complete.cases(pb),]
+pb$頁數=as.numeric(pb$頁數)
+str(pb)
+
+```
+
+```{r}
+#各個年齡層，讀幾頁的書合理
+#pb$適讀對象
+#成人(一般)\成人(學術)\兒童(6-12)\青少年\學前兒童\樂齡
+group1<-group_by(pb,適讀對象)%>%
+  summarise(nbook=n(),meanpage=mean(頁數),medianpage=median(頁數),sd(頁數),max(頁數),min(頁數)  )
+               
+head(group1)
+
+group1=data.frame(group1)
+group1<-rename(group1,agegp=適讀對象)
+group1
+```
+
+```{r}
+#visualization
+ggplot(data=group1) +
+    
+    # 先畫bar plot
+    geom_bar(aes(x=agegp,
+                 y=meanpage,
+                 fill=agegp),
+                 stat = "identity"
+             ) +
+    
+    # 再沿著Y，轉軸成圓餅圖
+    coord_polar("y", start=0)+theme(text = element_text(family = 'STKaiti'))
+```
+
+```{r}
+ggplot(group1, aes(x=agegp, y=medianpage)) +
+     geom_boxplot() +
+  labs(x="適讀年齡",y='頁數中位數') +
+  stat_summary(fun.y=median, geom="point", shape=16, size=2) +
+  theme_bw()+theme(text = element_text(family = 'STKaiti'))
+```
+
+```{r}
+#大於500頁的書，都是哪些書
+pbl=pb[pb$頁數>500,]
+group2=group_by(pbl,適讀對象)%>%
+  summarise(nbook=n())
+group2
+t=pbl[grepl("聯經",pbl$出版單位),]
+t
+pblp=pbl$出版單位
+View(pblp)
+seg<- worker()
+pblp_split<-seg[pblp]
+p<-table(unlist(pblp_split))
+p<- sort(p,decreasing = TRUE)
+p_df <- as.data.frame(p)
+p_df
+#group2用excel
+group2$fraction = group2$nbook/ 1621
+dat = group2[order(group2$fraction), ]
+dat$ymax = cumsum(dat$fraction)
+dat$ymin = c(0, head(dat$ymax, n=-1))
+dat
+ggplot(data=dat, mapping=aes(x=group2$適讀對象,y=group2$fraction,fill=group2$適讀對象))+
+  geom_bar(stat="identity",width=0.5,position='dodge')+
+  coord_polar("y",start = 0,clip = "on")+
+  scale_x_continuous(limits=c(0, 360))
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  theme(text = element_text(family = 'STKaiti'))
+
+p1 = ggplot(dat, aes(fill=group2$適讀對象, y=group2$fraction,ymax=ymax, ymin=ymin, xmax=4, xmin=3)) +
+     geom_rect() +
+     coord_polar(theta="y",start = .001,clip = "on") +
+     xlim(c(0, 4)) +
+     theme(panel.grid=element_blank()) +
+     theme(axis.text=element_blank()) +
+     theme(axis.ticks=element_blank())  +
+     labs(title="大於500頁的書籍適讀對象分布") +
+     xlab("") +
+     ylab("")+
+     theme(text = element_text(family = 'STKaiti'))
+p1
+
+#bn=pbl$書名
+#seg<- worker()
+#bn_split<-seg[bn]
+#result<-table(unlist(bn_split))
+#result1 <- sort(result,decreasing = TRUE)
+#res_df <- as.data.frame(result1)
+#res_df1=res_df[-1:-2,]
+#res_df2=res_df1[-9,]
+#res_df3=res_df2[-14:-15,]
+#res_df3=res_df3[1:15,]
+#res_df3=rename(res_df3,Words=Var1)
+#plot_df3=ggplot(res_df3, aes(x = Words, y=Freq,fill=Words))+geom_bar(stat = "identity")+theme(text = element_text(family = 'STKaiti'))
+#plot_df3
+
+tp=pbl$標題
+seg<- worker()
+tp_split<-seg[tp]
+result<-table(unlist(tp_split))
+result1 <- sort(result,decreasing = TRUE)
+res_df <- as.data.frame(result1)
+res_df=res_df[-1:-4,]
+res_df=res_df[-2,]
+res_df=res_df[-3,]
+res_df=res_df[-5,]
+res_df=res_df[-9:-12,]
+res_df=res_df[-15:-19,]
+res_df=res_df[-14,]
+res_df=rename(res_df,Words=Var1)
+res_df=res_df[1:24,]
+plot_df=ggplot(res_df, aes(x = Words, y=Freq,fill=Words))+geom_bar(stat = "identity")+theme(text = element_text(family = 'STKaiti'))
+plot_df
+```
+
+```{r}
+#少於200頁的書籍
+pbs=pb[pb$頁數<200,]
+group3=group_by(pbs,適讀對象)%>%
+  summarise(nbook=n())
+#group3
+pbsp=pbs$出版單位
+View(pbsp)
+seg<- worker()
+pbsp_split<-seg[pbsp]
+p1<-table(unlist(pbsp_split))
+p1<- sort(p1,decreasing = TRUE)
+p1_df <- as.data.frame(p1)
+p1_df
+t=pbl[grepl("聯經",pbs$出版單位),]
+t
+bns=pbs$書名
+seg<- worker()
+bns_split<-seg[bns]
+result<-table(unlist(bns_split))
+result1 <- sort(result,decreasing = TRUE)
+res_df <- as.data.frame(result1)
+res_df=rename(res_df,Words=Var1)
+res_df=res_df[1:30,]
+res_df=res_df[-1:-2,]
+res_df=res_df[-2:-3,]
+res_df=res_df[-5:-7,]
+res_df=res_df[-7:-9,]
+res_df=res_df[-8:-12,]
+res_df=res_df[-9:-10,]
+res_df=res_df[-13,]
+View(res_df)
+plot_df=ggplot(res_df, aes(x = Words, y=Freq,fill=Words))+geom_bar(stat = "identity")+theme(text = element_text(family = 'STKaiti'))
+plot_df
+
+tps=pbs$標題
+seg<- worker()
+tps_split<-seg[tps]
+result<-table(unlist(tps_split))
+result1 <- sort(result,decreasing = TRUE)
+res_df <- as.data.frame(result1)
+res_df=rename(res_df,Words=Var1)
+res_df=res_df[1:40,]
+res_df=res_df[-1:-2,]
+res_df=res_df[-1,]
+res_df=res_df[-3,]
+res_df=res_df[1:23,]
+plot_df=ggplot(res_df, aes(x = Words, y=Freq,fill=Words))+geom_bar(stat = "identity")+theme(text = element_text(family = 'STKaiti'))
+plot_df
+```
+
+```{r}
+#出版社書籍特色
+#中文圖書主題詞表http://isbn.ncl.edu.tw/NCL_ISBNNet/main_ProcessMenuItems.php?Ptarget=32&Pact=ViewContent&Pval=32&Pfld=Ffile
+pba=pb[grepl("木馬",pb$出版單位),]
+#View(pba)
+pbb=pb[grepl("聯經",pb$出版單位),]
+#View(pbb)
+pbc=pb[grepl("三民",pb$出版單位),]
+#View(pbc)
+pbd=pb[grepl("時報",pb$出版單位),]
+#View(pbd)
+pbe=pb[grepl("商周",pb$出版單位),]
+#View(pbe)
+pbf=pb[grepl("中華",pb$出版單位),]
+#View(pbf)
+pbat=pba$標題
+seg<- worker()
+pbat_split<-seg[pbat]
+pbat_t<-table(unlist(pbat_split))
+pbat_t<- sort(pbat_t,decreasing = TRUE)
+pbat_df <- as.data.frame(pbat_t)
+pbat_df=rename(pbat_df,Words=Var1)
+pbat_df=pbat_df[1:20,]
+pbat_df=pbat_df[-1:-10,]
+pbat_df=pbat_df[-4,]
+pbat_df
+plt_pbat=ggplot(pbat_df, aes(x = Words,y=Freq, fill=Words))+geom_bar(stat ="identity")+coord_flip()+    ggtitle("木馬")+theme(text = element_text(family = 'STKaiti'))
+plt_pbat
+```
+```{r}
+pbbt=pbb$標題
+seg<- worker()
+pbbt_split<-seg[pbbt]
+pbbt_t<-table(unlist(pbbt_split))
+pbbt_t<- sort(pbbt_t,decreasing = TRUE)
+pbbt_df <- as.data.frame(pbbt_t)
+pbbt_df=rename(pbbt_df,Words=Var1)
+pbbt_df=pbbt_df[1:20,]
+pbbt_df=pbbt_df[-1:-4,]
+pbbt_df=pbbt_df[-2:-3,]
+pbbt_df=pbbt_df[-5,]
+pbbt_df=pbbt_df[-8,]
+pbbt_df=pbbt_df[-11:-12,]
+pbbt_df
+plt_pbbt=ggplot(pbbt_df, aes(x = Words,y=Freq, fill=Words))+geom_bar(stat ="identity")+coord_flip()+theme(text = element_text(family = 'STKaiti'))+ggtitle("聯經")
+plt_pbbt
+```
+
+```{r}
+pbct=pbc$標題
+seg<- worker()
+pbct_split<-seg[pbct]
+pbct_t<-table(unlist(pbct_split))
+pbct_t<- sort(pbct_t,decreasing = TRUE)
+pbct_df <- as.data.frame(pbct_t)
+pbct_df=rename(pbct_df,Words=Var1)
+pbct_df=pbct_df[1:20,]
+pbct_df=pbct_df[-1:-3,]
+pbct_df=pbct_df[-2,]
+pbct_df=pbct_df[-5,]
+pbct_df=pbct_df[1:10,]
+pbct_df
+plt_pbct=ggplot(pbct_df, aes(x = Words,y=Freq, fill=Words))+geom_bar(stat ="identity")+coord_flip()+theme(text = element_text(family = 'STKaiti'))+ggtitle("三民")
+plt_pbct
+```
+```{r}
+pbdt=pbd$標題
+seg<- worker()
+pbdt_split<-seg[pbdt]
+pbdt_t<-table(unlist(pbdt_split))
+pbdt_t<- sort(pbdt_t,decreasing = TRUE)
+pbdt_df <- as.data.frame(pbdt_t)
+pbdt_df=rename(pbdt_df,Words=Var1)
+pbdt_df=pbdt_df[1:20,]
+pbdt_df=pbdt_df[-1:-3,]
+pbdt_df=pbdt_df[-2:-4,]
+pbdt_df=pbdt_df[-2,]
+pbdt_df=pbdt_df[-4:-6,]
+pbdt_df
+plt_pbdt=ggplot(pbdt_df, aes(x = Words,y=Freq, fill=Words))+geom_bar(stat ="identity")+coord_flip()+theme(text = element_text(family = 'STKaiti'))+ggtitle("時報")
+plt_pbdt
+```
+
+```{r}
+plt_all=grid.arrange(plt_pbat, plt_pbbt, plt_pbct, plt_pbdt, nrow = 2, ncol = 2)
+plt_all
+
+```
+
